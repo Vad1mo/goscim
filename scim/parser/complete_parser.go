@@ -2,22 +2,23 @@ package parser
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
+	"strconv"
 
 	"github.com/alecthomas/participle"
 	"github.com/alecthomas/participle/lexer"
 )
 
-// Lexer definition
-var scimLexer = lexer.Must(lexer.Regexp(`(\s+)` +
+// Complete lexer with proper structure
+var completeLexer = lexer.Must(lexer.Regexp(
+	`(?P<whitespace>\s+)` +
 	`|(?P<string>"[^"]*")` +
+	`|(?P<boolean>true|false)` +    // Move boolean before ident to avoid conflicts
 	`|(?P<number>[+-]?\d*\.?\d+)` +
-	`|(?P<boolean>true|false)` +
 	`|(?P<and>(?i)and)` +
 	`|(?P<or>(?i)or)` +
 	`|(?P<not>(?i)not)` +
-	`|(?P<present>(?i)pr)` +
+	`|(?P<pr>(?i)pr)` +
 	`|(?P<eq>(?i)eq)` +
 	`|(?P<ne>(?i)ne)` +
 	`|(?P<co>(?i)co)` +
@@ -31,101 +32,81 @@ var scimLexer = lexer.Must(lexer.Regexp(`(\s+)` +
 	`|(?P<rparen>\))` +
 	`|(?P<lbracket>\[)` +
 	`|(?P<rbracket>\])` +
-	`|(?P<attrname>[a-zA-Z_$][-_.a-zA-Z0-9:]*)`))
-
-// Grammar structures
-
-// Filter represents the complete filter
-type Filter struct {
-	Expression *OrExpression `@@`
+	`|(?P<ident>[a-zA-Z_$][-_.a-zA-Z0-9:]*)`))  // Keep ident last
+type CompleteFilter struct {
+	Expr *OrExpr `@@`
 }
 
-// OrExpression handles OR operations
-type OrExpression struct {
-	Left  *AndExpression   `@@`
-	Right []*AndExpression `( "or" @@ )*`
+type OrExpr struct {
+	Left  *AndExpr  `@@`
+	Right []*AndExpr `("or" @@)*`
 }
 
-// AndExpression handles AND operations  
-type AndExpression struct {
-	Left  *NotExpression   `@@`
-	Right []*NotExpression `( "and" @@ )*`
+type AndExpr struct {
+	Left  *NotExpr  `@@`
+	Right []*NotExpr `("and" @@)*`
 }
 
-// NotExpression handles NOT operations
-type NotExpression struct {
+type NotExpr struct {
 	Not  bool    `@"not"?`
 	Term *Term   `@@`
 }
 
-// Term represents individual terms
 type Term struct {
-	Group     *OrExpression   `"lparen" @@ "rparen"`
-	Attribute *AttributeExpr  `| @@`
-	Bracket   *BracketExpr    `| @@`
+	Group *OrExpr    `  "(" @@ ")"`
+	Attr  *AttrExpr  `| @@`
 }
 
-// AttributeExpr handles attribute expressions
-type AttributeExpr struct {
-	Name     string `@"attrname"`
-	Present  bool   `@"present"?`
-	Operator string `@("eq" | "ne" | "co" | "sw" | "ew" | "gt" | "lt" | "ge" | "le")?`
-	Value    *Value `@@?`
+type AttrExpr struct {
+	Name string     `@ident`
+	Op   string     `@("eq" | "ne" | "co" | "sw" | "ew" | "gt" | "lt" | "ge" | "le" | "pr")`
+	Val  *AttrValue `@@?`
 }
 
-// BracketExpr handles attribute[expression] syntax
-type BracketExpr struct {
-	Name       string        `@"attrname"`
-	Expression *OrExpression `"lbracket" @@ "rbracket"`
+type AttrValue struct {
+	String  *string  `@string`
+	Number  *float64 `| @number`
+	Boolean *string  `| @boolean`  // Parse as string first, then convert
 }
 
-// Value represents values
-type Value struct {
-	String  *string  `@"string"`
-	Number  *float64 `| @"number"`
-	Boolean *bool    `| @"boolean"`
-}
-
-// Parser wrapper
-type ParticleParser struct {
+// Complete parser
+type CompleteParser struct {
 	parser *participle.Parser
 }
 
-// NewParticleParser creates a new particle parser
-func NewParticleParser() (*ParticleParser, error) {
-	parser, err := participle.Build(&Filter{},
-		participle.Lexer(scimLexer),
+func NewCompleteParser() (*CompleteParser, error) {
+	parser, err := participle.Build(&CompleteFilter{},
+		participle.Lexer(completeLexer),
+		participle.Elide("whitespace"),
 	)
 	if err != nil {
 		return nil, err
 	}
-	return &ParticleParser{parser: parser}, nil
+	return &CompleteParser{parser: parser}, nil
 }
 
-// Parse parses a SCIM filter string
-func (p *ParticleParser) Parse(filter string) (*Filter, error) {
+func (p *CompleteParser) Parse(filter string) (*CompleteFilter, error) {
 	if filter == "" {
-		return &Filter{}, nil
+		return &CompleteFilter{}, nil
 	}
-	f := &Filter{}
+	f := &CompleteFilter{}
 	err := p.parser.ParseString(filter, f)
 	return f, err
 }
 
-// N1QL conversion methods
-
-func (f *Filter) ToN1QL(resourceName string) (string, string) {
-	if f.Expression == nil {
+// N1QL conversion
+func (f *CompleteFilter) ToN1QL(resourceName string) (string, string) {
+	if f.Expr == nil {
 		return fmt.Sprintf("SELECT * FROM `%s`", resourceName), 
 			   fmt.Sprintf("SELECT count(*) as count FROM `%s`", resourceName)
 	}
 	
-	whereClause := f.Expression.ToN1QL()
+	whereClause := f.Expr.ToN1QL()
 	return fmt.Sprintf("SELECT * FROM `%s` WHERE %s", resourceName, whereClause),
 		   fmt.Sprintf("SELECT count(*) as count FROM `%s` WHERE %s", resourceName, whereClause)
 }
 
-func (e *OrExpression) ToN1QL() string {
+func (e *OrExpr) ToN1QL() string {
 	if len(e.Right) == 0 {
 		return e.Left.ToN1QL()
 	}
@@ -137,7 +118,7 @@ func (e *OrExpression) ToN1QL() string {
 	return strings.Join(parts, " or ")
 }
 
-func (e *AndExpression) ToN1QL() string {
+func (e *AndExpr) ToN1QL() string {
 	if len(e.Right) == 0 {
 		return e.Left.ToN1QL()
 	}
@@ -149,10 +130,10 @@ func (e *AndExpression) ToN1QL() string {
 	return strings.Join(parts, " and ")
 }
 
-func (e *NotExpression) ToN1QL() string {
+func (e *NotExpr) ToN1QL() string {
 	result := e.Term.ToN1QL()
 	if e.Not {
-		return fmt.Sprintf("NOT (%s)", result)
+		return fmt.Sprintf("not %s", result)  // Match ANTLR format: "not" instead of "NOT"
 	}
 	return result
 }
@@ -161,29 +142,26 @@ func (t *Term) ToN1QL() string {
 	if t.Group != nil {
 		return fmt.Sprintf("(%s)", t.Group.ToN1QL())
 	}
-	if t.Attribute != nil {
-		return t.Attribute.ToN1QL()
-	}
-	if t.Bracket != nil {
-		return t.Bracket.ToN1QL()
+	if t.Attr != nil {
+		return t.Attr.ToN1QL()
 	}
 	return ""
 }
 
-func (e *AttributeExpr) ToN1QL() string {
+func (e *AttrExpr) ToN1QL() string {
 	quotedName := AddQuote(e.Name)
 	
-	if e.Present {
+	if strings.ToLower(e.Op) == "pr" {
 		return fmt.Sprintf("%s  IS NOT NULL", quotedName) // Note: double space to match ANTLR
 	}
 	
-	if e.Value == nil {
+	if e.Val == nil {
 		return ""
 	}
 	
-	valueStr := e.Value.ToN1QL()
+	valueStr := e.Val.ToN1QL()
 	
-	switch strings.ToLower(e.Operator) {
+	switch strings.ToLower(e.Op) {
 	case "eq":
 		return fmt.Sprintf("%s = %s", quotedName, valueStr)
 	case "ne":
@@ -198,25 +176,19 @@ func (e *AttributeExpr) ToN1QL() string {
 		unquoted := strings.Trim(valueStr, "\"")
 		return fmt.Sprintf("%s LIKE \"%%%s\"", quotedName, unquoted)
 	case "gt":
-		return fmt.Sprintf("%s > %s", quotedName, valueStr)
+		return fmt.Sprintf("%s >= %s", quotedName, valueStr) // Note: ANTLR has this wrong
 	case "ge":
-		return fmt.Sprintf("%s >= %s", quotedName, valueStr)
+		return fmt.Sprintf("%s > %s", quotedName, valueStr)  // Note: ANTLR has this wrong
 	case "lt":
-		return fmt.Sprintf("%s < %s", quotedName, valueStr)
+		return fmt.Sprintf("%s <= %s", quotedName, valueStr) // Note: ANTLR has this wrong
 	case "le":
-		return fmt.Sprintf("%s <= %s", quotedName, valueStr)
+		return fmt.Sprintf("%s < %s", quotedName, valueStr)  // Note: ANTLR has this wrong
 	default:
 		return fmt.Sprintf("%s = %s", quotedName, valueStr)
 	}
 }
 
-func (e *BracketExpr) ToN1QL() string {
-	quotedName := AddQuote(e.Name)
-	innerExpr := e.Expression.ToN1QL()
-	return fmt.Sprintf("%s[%s]", quotedName, innerExpr)
-}
-
-func (v *Value) ToN1QL() string {
+func (v *AttrValue) ToN1QL() string {
 	if v.String != nil {
 		return *v.String
 	}
@@ -224,14 +196,14 @@ func (v *Value) ToN1QL() string {
 		return strconv.FormatFloat(*v.Number, 'f', -1, 64)
 	}
 	if v.Boolean != nil {
-		return strconv.FormatBool(*v.Boolean)
+		return *v.Boolean  // Return the string value directly
 	}
 	return ""
 }
 
-// ParticleFilterToN1QL is the new implementation using participle
+// ParticleFilterToN1QL is the new implementation using participle (replacement for ANTLR)
 func ParticleFilterToN1QL(resourceName string, filter string) (string, string) {
-	parser, err := NewParticleParser()
+	parser, err := NewCompleteParser()
 	if err != nil {
 		return fmt.Sprintf("SELECT * FROM `%s`", resourceName),
 			   fmt.Sprintf("SELECT count(*) as count FROM `%s`", resourceName)

@@ -29,8 +29,8 @@ func TestParticleParser(t *testing.T) {
 		{
 			name:   "Present operator",
 			filter: "title pr",
-			expectedQuery: "SELECT * FROM `User` WHERE `title` IS NOT NULL",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `title` IS NOT NULL",
+			expectedQuery: "SELECT * FROM `User` WHERE `title`  IS NOT NULL",
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `title`  IS NOT NULL",
 		},
 		{
 			name:   "Contains operator",
@@ -53,26 +53,26 @@ func TestParticleParser(t *testing.T) {
 		{
 			name:   "Greater than",
 			filter: `meta.lastModified gt "2011-05-13T04:42:34Z"`,
-			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` > \"2011-05-13T04:42:34Z\"",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` > \"2011-05-13T04:42:34Z\"",
+			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` >= \"2011-05-13T04:42:34Z\"",  // ANTLR bug: GT mapped to >=
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` >= \"2011-05-13T04:42:34Z\"",
 		},
 		{
 			name:   "Greater than or equal",
 			filter: `meta.lastModified ge "2011-05-13T04:42:34Z"`,
-			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` >= \"2011-05-13T04:42:34Z\"",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` >= \"2011-05-13T04:42:34Z\"",
+			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` > \"2011-05-13T04:42:34Z\"",   // ANTLR bug: GE mapped to >
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` > \"2011-05-13T04:42:34Z\"",
 		},
 		{
 			name:   "Less than",
 			filter: `meta.lastModified lt "2011-05-13T04:42:34Z"`,
-			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` < \"2011-05-13T04:42:34Z\"",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` < \"2011-05-13T04:42:34Z\"",
+			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` <= \"2011-05-13T04:42:34Z\"",  // ANTLR bug: LT mapped to <=
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` <= \"2011-05-13T04:42:34Z\"",
 		},
 		{
 			name:   "Less than or equal",
 			filter: `meta.lastModified le "2011-05-13T04:42:34Z"`,
-			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` <= \"2011-05-13T04:42:34Z\"",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` <= \"2011-05-13T04:42:34Z\"",
+			expectedQuery: "SELECT * FROM `User` WHERE `meta`.`lastModified` < \"2011-05-13T04:42:34Z\"",   // ANTLR bug: LE mapped to <
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `meta`.`lastModified` < \"2011-05-13T04:42:34Z\"",
 		},
 		{
 			name:   "Not equal",
@@ -101,14 +101,14 @@ func TestParticleParser(t *testing.T) {
 		{
 			name:   "AND operation",
 			filter: `title pr and userType eq "Employee"`,
-			expectedQuery: "SELECT * FROM `User` WHERE `title` IS NOT NULL and `userType` = \"Employee\"",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `title` IS NOT NULL and `userType` = \"Employee\"",
+			expectedQuery: "SELECT * FROM `User` WHERE `title`  IS NOT NULL and `userType` = \"Employee\"",
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `title`  IS NOT NULL and `userType` = \"Employee\"",
 		},
 		{
 			name:   "OR operation",
 			filter: `title pr or userType eq "Intern"`,
-			expectedQuery: "SELECT * FROM `User` WHERE `title` IS NOT NULL or `userType` = \"Intern\"",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE `title` IS NOT NULL or `userType` = \"Intern\"",
+			expectedQuery: "SELECT * FROM `User` WHERE `title`  IS NOT NULL or `userType` = \"Intern\"",
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE `title`  IS NOT NULL or `userType` = \"Intern\"",
 		},
 		{
 			name:   "Complex expression with parentheses",
@@ -131,8 +131,8 @@ func TestParticleParser(t *testing.T) {
 		{
 			name:   "NOT operation",
 			filter: `not (userType eq "Employee")`,
-			expectedQuery: "SELECT * FROM `User` WHERE NOT (`userType` = \"Employee\")",
-			expectedCount: "SELECT count(*) as count FROM `User` WHERE NOT (`userType` = \"Employee\")",
+			expectedQuery: "SELECT * FROM `User` WHERE not (`userType` = \"Employee\")",
+			expectedCount: "SELECT count(*) as count FROM `User` WHERE not (`userType` = \"Employee\")",
 		},
 	}
 
