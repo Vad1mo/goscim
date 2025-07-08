@@ -509,13 +509,15 @@ curl -u admin:pass http://localhost:8091/query/service \
 
 ## Contributing
 
-### Adding New Resources
+### Adding New Resources (No ANTLR Required)
+Most contributions don't need ANTLR knowledge:
 1. Create JSON schema in `config/schemas/`
 2. Define resource type in `config/resourceType/`
 3. Configure bucket in `config/bucketSettings/`
 4. Restart server to load changes
 
-### Parser Regeneration
+### Parser Regeneration (ANTLR Required)
+**Only needed if modifying `ScimFilter.g4`:**
 ```bash
 # Install ANTLR
 wget http://www.antlr.org/download/antlr-4.7-complete.jar
@@ -524,6 +526,19 @@ alias antlr='java -jar $PWD/antlr-4.7-complete.jar'
 # Regenerate parser
 antlr -Dlanguage=Go -o scim/parser ScimFilter.g4
 ```
+
+> 💡 **Tip**: 99% of contributions don't require ANTLR. See [ANTLR Requirements Guide](antlr-requirements.md) for details.
+
+## Frequently Asked Questions
+
+### Q: How much ANTLR knowledge do I need to use this project?
+**A: None for regular usage!** GoSCIM comes with pre-generated parser files. ANTLR knowledge is only needed if you want to modify the SCIM filter grammar itself. See our detailed [ANTLR Requirements Guide](antlr-requirements.md) for specifics.
+
+### Q: Can I use custom SCIM filter expressions?
+**A: Yes!** The current parser supports all standard SCIM 2.0 filter syntax including complex nested expressions, multi-valued attributes, and schema extensions.
+
+### Q: Do I need to install ANTLR to contribute?
+**A: Not for most contributions!** Adding new features, fixing bugs, or improving documentation doesn't require ANTLR. Only grammar modifications need ANTLR installation.
 
 ## Community and Support
 

@@ -190,6 +190,8 @@ Special thanks to all our contributors! Every contribution matters, from bug rep
 | 🛡️ **Security Guide** | [docs/en/security.md](docs/en/security.md) |
 | 🔌 **Integrations** | [docs/en/integrations.md](docs/en/integrations.md) |
 | 👩‍💻 **Developer Guide** | [docs/en/development.md](docs/en/development.md) |
+| 🔍 **ANTLR Requirements** | [docs/en/antlr-requirements.md](docs/en/antlr-requirements.md) |
+| 📝 **Filter Examples** | [examples/filter-examples.md](examples/filter-examples.md) |
 | 🚀 **Operations** | [docs/en/operations.md](docs/en/operations.md) |
 
 ### 🌍 **Multi-Language Docs**
